@@ -1,13 +1,61 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Drixian</title>
-  </head>
-  <body class="bg-[#36393f] text-white select-none">
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <title>Drixian | Community Hub</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            drixGreen: '#43b581',
+            drixDanger: '#f04747',
+            bgPrimary: '#36393f',
+            bgSecondary: '#2f3136',
+            bgTertiary: '#202225',
+            bgProfile: '#292b2f',
+            bgInput: '#40444b'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #36393f;
+      color: #dcddde;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+      margin: 0;
+    }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #202225; }
+    ::-webkit-scrollbar-thumb { background: #2f3136; border-radius: 4px; }
+    
+    .premium-gradient-text {
+      background: linear-gradient(45deg, #ff7300, #fe0000, #ff007f, #0070ff, #00ffd5);
+      background-size: 400% 400%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: gradientShift 6s ease infinite;
+    }
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="drixian-root" class="flex h-screen w-screen select-none overflow-hidden">
+    </div>
+
+  <script type="module" src="premium.js"></script>
+  <script type="module" src="ui.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
 </html>
