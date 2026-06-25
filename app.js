@@ -25,11 +25,25 @@ let state = {
   communities: [],
   channels: [],
   messages: [],
-  currentServer: null
+  currentServer: null,
+  isAuthLoading: true // New anchor flag to trap rendering loop until auth clears
 };
 
 function triggerDOMUpdate(errorMessage = "", isRegistering = false) {
   const root = document.getElementById('drixian-root');
+  if (!root) return;
+
+  // Intercept the render pass if Firebase is still calculating the session status on reload
+  if (state.isAuthLoading) {
+    root.innerHTML = `
+      <div class="h-screen w-screen flex flex-col items-center justify-center bg-[#36393f]">
+        <img src="branding/drixianlogo.png" alt="Loading" class="w-16 h-16 object-contain animate-pulse opacity-50 mb-4">
+        <span class="text-xs font-mono text-white text-opacity-30 tracking-widest uppercase">Connecting to Stream...</span>
+      </div>
+    `;
+    return;
+  }
+
   if (!state.user) {
     root.innerHTML = renderAuthPage(errorMessage, isRegistering);
     bindAuthenticationEvents();
@@ -157,9 +171,13 @@ window.drixianSelectChannel = function(id) {
   });
 };
 
+// Fire up the immediate initial screen rendering loop pass
+triggerDOMUpdate();
+
+// Pipeline State Synchronizer Listener
 onAuthStateChanged(auth, async (user) => {
-  state.user = user;
   if (user) {
+    state.user = user;
     const profileSnap = await getDoc(doc(db, "users", user.uid));
     state.username = profileSnap.exists() ? profileSnap.data().username : user.email.split('@')[0];
 
@@ -167,12 +185,17 @@ onAuthStateChanged(auth, async (user) => {
     onSnapshot(q, (snap) => {
       state.communities = [];
       snap.forEach(d => state.communities.push({ id: d.id, ...d.data() }));
+      
+      // Release loading block lock safely once records load inside structural context
+      state.isAuthLoading = false;
       triggerDOMUpdate();
     });
   } else {
+    state.user = null;
     state.username = "";
     state.activeCommunityId = null;
     state.activeChannelId = null;
+    state.isAuthLoading = false;
     triggerDOMUpdate();
   }
 });
