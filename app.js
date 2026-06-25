@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, where, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { renderAuthPage, renderMainInterface } from './ui.js';
+import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, where, doc, setDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { renderAuthPage, renderMainInterface, renderProfileSettingsHTML, renderServerSettingsHTML } from './ui.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyB2vGR4CJe5spSYk4oV8h7RUvDpmGg36fs",
@@ -20,11 +20,13 @@ const db = getFirestore(app);
 let state = {
   user: null,
   username: "",
+  userProfile: {},
   activeCommunityId: null,
   activeChannelId: null,
   communities: [],
   channels: [],
   messages: [],
+  serverUsers: [],
   currentServer: null,
   isAuthLoading: true
 };
@@ -72,9 +74,10 @@ function bindAuthenticationEvents() {
         if (!usernameInput) return;
         
         const credentials = await createUserWithEmailAndPassword(auth, email, password);
-        
         await setDoc(doc(db, "users", credentials.user.uid), {
           username: usernameInput,
+          avatarColor: '#43b581',
+          customStatus: 'Entering the stream...',
           createdAt: Date.now()
         });
       }
@@ -93,6 +96,62 @@ function bindInterfaceEvents() {
     state.currentServer = null;
     state.messages = [];
     triggerDOMUpdate();
+  });
+
+  // Modal Panel Mount Triggers
+  document.getElementById('open-profile-settings-btn')?.addEventListener('click', () => {
+    const container = document.getElementById('drixian-modal-container');
+    const wrapper = document.getElementById('modal-content-wrapper');
+    wrapper.innerHTML = renderProfileSettingsHTML(state.userProfile);
+    container.classList.remove('hidden');
+
+    document.getElementById('profile-settings-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const updatedName = document.getElementById('edit-profile-username').value.trim();
+      const updatedStatus = document.getElementById('edit-profile-status').value.trim();
+      const updatedColor = document.getElementById('edit-profile-color').value;
+
+      await updateDoc(doc(db, "users", state.user.uid), {
+        username: updatedName,
+        customStatus: updatedStatus,
+        avatarColor: updatedColor
+      });
+      container.classList.add('hidden');
+    });
+  });
+
+  document.getElementById('server-settings-btn')?.addEventListener('click', () => {
+    if (!state.currentServer) return;
+    const container = document.getElementById('drixian-modal-container');
+    const wrapper = document.getElementById('modal-content-wrapper');
+    wrapper.innerHTML = renderServerSettingsHTML(state.currentServer);
+    container.classList.remove('hidden');
+
+    // Role Distribution Event Mapping
+    document.getElementById('apply-role-assignment-btn')?.addEventListener('click', async () => {
+      const targetUser = document.getElementById('role-target-user').value.trim();
+      const assignedClass = document.getElementById('role-target-class').value;
+      if (!targetUser) return alert("Specify a valid username target");
+
+      await setDoc(doc(db, "communities", state.activeCommunityId, "roles", targetUser.toLowerCase()), {
+        username: targetUser,
+        role: assignedClass,
+        timestamp: Date.now()
+      });
+      alert(`Classification mapped: ${targetUser} is now prioritized as ${assignedClass}`);
+    });
+
+    document.getElementById('server-settings-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const updatedServerName = document.getElementById('edit-server-name').value.trim();
+      const updatedMets = parseInt(document.getElementById('edit-server-mets').value) || 0;
+
+      await updateDoc(doc(db, "communities", state.activeCommunityId), {
+        name: updatedServerName,
+        metsContributed: updatedMets
+      });
+      container.classList.add('hidden');
+    });
   });
 
   document.getElementById('create-community-btn')?.addEventListener('click', async () => {
@@ -124,8 +183,13 @@ function bindInterfaceEvents() {
     const inputField = document.getElementById('chat-message-input');
     if (!inputField || !inputField.value.trim() || !state.activeChannelId) return;
 
+    // Fetch existing role profile if applicable
+    const explicitRole = state.serverUsers?.find(su => su.username?.toLowerCase() === state.username.toLowerCase())?.role || 'member';
+
     await addDoc(collection(db, "channels", state.activeChannelId, "messages"), {
-      username: state.username || state.user.email.split('@')[0],
+      username: state.username,
+      userRole: explicitRole,
+      avatarColor: state.userProfile?.avatarColor || '#202225',
       content: inputField.value.trim(),
       timestamp: Date.now()
     });
@@ -134,6 +198,7 @@ function bindInterfaceEvents() {
 }
 
 let unsubChannels = null;
+let unsubServerUsers = null;
 window.drixianSelectCommunity = function(id) {
   state.activeCommunityId = id;
   state.activeChannelId = null;
@@ -150,6 +215,14 @@ window.drixianSelectCommunity = function(id) {
     } else {
       triggerDOMUpdate();
     }
+  });
+
+  if (unsubServerUsers) unsubServerUsers();
+  const rq = query(collection(db, "communities", id, "roles"), orderBy("timestamp", "desc"));
+  unsubServerUsers = onSnapshot(rq, (snap) => {
+    state.serverUsers = [];
+    snap.forEach(d => state.serverUsers.push({ id: d.id, ...d.data() }));
+    triggerDOMUpdate();
   });
 };
 
@@ -176,23 +249,29 @@ onAuthStateChanged(auth, async (user) => {
   if (user) {
     state.user = user;
     
-    try {
-      const profileSnap = await getDoc(doc(db, "users", user.uid));
-      state.username = profileSnap.exists() ? profileSnap.data().username : user.email.split('@')[0];
-    } catch (e) {
-      state.username = user.email.split('@')[0];
-    }
-
-    state.isAuthLoading = false;
-    triggerDOMUpdate();
+    // Live update account context profiles
+    onSnapshot(doc(db, "users", user.uid), (snap) => {
+      if (snap.exists()) {
+        state.userProfile = snap.data();
+        state.username = snap.data().username || user.email.split('@')[0];
+      } else {
+        state.username = user.email.split('@')[0];
+        state.userProfile = { username: state.username, avatarColor: '#43b581' };
+      }
+      state.isAuthLoading = false;
+      triggerDOMUpdate();
+    });
 
     const q = query(collection(db, "communities"), orderBy("createdAt", "desc"));
     onSnapshot(q, (snap) => {
       state.communities = [];
-      snap.forEach(d => state.communities.push({ id: d.id, ...d.data() }));
+      snap.forEach(d => {
+        if (d.id === state.activeCommunityId) state.currentServer = { id: d.id, ...d.data() };
+        state.communities.push({ id: d.id, ...d.data() });
+      });
       triggerDOMUpdate();
     }, (err) => {
-      console.warn("Communities query limited:", err.message);
+      console.warn("Query limit:", err.message);
       triggerDOMUpdate();
     });
 
