@@ -77,11 +77,12 @@ export function renderMainInterface(state) {
       </div>
     </div>
 
-    <div class="w-60 bg-bgSecondary h-full flex flex-col flex-shrink-0">
-      <div class="h-12 border-b border-black/20 flex flex-col justify-center px-4 shadow-sm text-white">
+    <div class="w-60 bg-bgSecondary h-full flex flex-col flex-shrink-0 overflow-hidden">
+      <div class="h-12 border-b border-black/20 flex flex-col justify-center px-4 shadow-sm text-white flex-shrink-0">
         <div class="font-bold truncate text-sm tracking-wide">${state.currentServer ? state.currentServer.name : "Direct Messages"}</div>
         ${premium.tier === 3 ? `<div class="text-[9px] text-amber-400 font-bold uppercase tracking-widest animate-pulse flex items-center gap-1">${premium.label} Unlocked</div>` : ''}
       </div>
+      
       <div class="flex-1 overflow-y-auto p-2 space-y-[2px]">
         ${state.activeCommunityId ? `
           <div class="text-[11px] font-bold text-gray-400 uppercase px-2 py-1 tracking-wider">Text Channels</div>
@@ -97,17 +98,25 @@ export function renderMainInterface(state) {
         `}
       </div>
       
-      <div class="h-14 bg-bgProfile px-3 flex items-center justify-between border-t border-black/10">
-        <div class="flex items-center space-x-2 overflow-hidden">
-          <div class="w-8 h-8 rounded-full bg-drixGreen flex items-center justify-center text-white font-bold flex-shrink-0 text-sm">
-            ${displayName.substring(0, 1).toUpperCase()}
+      <div class="bg-bgProfile flex flex-col border-t border-black/10 mt-auto flex-shrink-0">
+        <div class="h-14 px-3 flex items-center justify-between">
+          <div class="flex items-center space-x-2 overflow-hidden">
+            <div class="w-8 h-8 rounded-full bg-drixGreen flex items-center justify-center text-white font-bold flex-shrink-0 text-sm">
+              ${displayName.substring(0, 1).toUpperCase()}
+            </div>
+            <div class="flex flex-col overflow-hidden">
+              <span class="text-sm font-bold text-white truncate leading-tight">${displayName}</span>
+              <span class="text-[11px] text-amber-400 font-semibold tracking-wide">Mets Account Verified</span>
+            </div>
           </div>
-          <div class="flex flex-col overflow-hidden">
-            <span class="text-sm font-bold text-white truncate leading-tight">${displayName}</span>
-            <span class="text-[11px] text-amber-400 font-semibold tracking-wide">Mets Account Verified</span>
-          </div>
+          <button id="logout-btn" class="text-gray-400 hover:text-white text-xs bg-bgTertiary px-2 py-1 rounded transition border border-black/20">Sign Out</button>
         </div>
-        <button id="logout-btn" class="text-gray-400 hover:text-white text-xs bg-bgTertiary px-2 py-1 rounded transition border border-black/20">Sign Out</button>
+        
+        <div class="bg-bgTertiary/30 px-3 py-1 text-left border-t border-black/5 select-none pointer-events-none">
+          <span class="text-[10px] font-mono tracking-wider text-white text-opacity-40 font-medium">
+            DRIXIAN BUILD v1.0.4-RELEASE
+          </span>
+        </div>
       </div>
     </div>
 
