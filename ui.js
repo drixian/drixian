@@ -1,39 +1,58 @@
 import { evaluateServerPremium } from './premium.js';
 
-export function renderAuthPage(errorMessage = "") {
+export function renderAuthPage(errorMessage = "", isRegistering = false) {
   return `
     <div class="h-screen w-screen flex items-center justify-center bg-cover bg-center" style="background-image: url('branding/drixianbackround.png')">
       <div class="bg-bgSecondary p-8 rounded-lg shadow-2xl w-full max-w-md border border-bgTertiary/50 backdrop-blur-sm bg-opacity-95">
         <div class="flex flex-col items-center mb-6">
           <img src="branding/drixianlogo.png" alt="Drixian" class="w-16 h-16 object-contain mb-2 drop-shadow-md">
-          <h2 class="text-2xl font-bold text-white tracking-wide">Welcome to Drixian</h2>
-          <p class="text-gray-400 text-xs mt-1">Create an account or login below to enter your workspace.</p>
+          <h2 class="text-2xl font-bold text-white tracking-wide">${isRegistering ? 'Create an Account' : 'Welcome Back!'}</h2>
+          <p class="text-gray-400 text-xs mt-1">
+            ${isRegistering ? 'Sign up to start building communities.' : 'We\'re so excited to see you again!'}
+          </p>
         </div>
+        
         ${errorMessage ? `<div class="bg-drixDanger/20 text-drixDanger p-3 text-xs rounded mb-4 border border-drixDanger/30">${errorMessage}</div>` : ''}
+        
         <form id="auth-form" class="space-y-4">
-          <div>
-            <label class="text-xs font-bold text-gray-300 uppercase tracking-wider block mb-2">Display Username</label>
+          <input type="hidden" id="auth-mode" value="${isRegistering ? 'register' : 'login'}">
+          
+          ${isRegistering ? `
+          <div class="animate-fadeIn">
+            <label class="text-xs font-bold text-gray-300 uppercase tracking-wider block mb-2">Username</label>
             <input type="text" id="auth-username" required placeholder="e.g., Bluz" class="w-full bg-bgTertiary text-white p-2.5 rounded focus:border-drixGreen outline-none border border-transparent transition placeholder-gray-600">
           </div>
+          ` : ''}
+          
           <div>
             <label class="text-xs font-bold text-gray-300 uppercase tracking-wider block mb-2">Email Address</label>
             <input type="email" id="auth-email" required placeholder="name@domain.com" class="w-full bg-bgTertiary text-white p-2.5 rounded focus:border-drixGreen outline-none border border-transparent transition placeholder-gray-600">
           </div>
+          
           <div>
             <label class="text-xs font-bold text-gray-300 uppercase tracking-wider block mb-2">Password</label>
             <input type="password" id="auth-password" required placeholder="••••••••" class="w-full bg-bgTertiary text-white p-2.5 rounded focus:border-drixGreen outline-none border border-transparent transition placeholder-gray-600">
           </div>
-          <button type="submit" class="w-full bg-drixGreen hover:bg-emerald-600 text-white font-medium py-2.5 rounded transition shadow-md active:scale-[0.99]">
-            Access Platform
+          
+          <button type="submit" class="w-full bg-drixGreen hover:bg-emerald-600 text-white font-medium py-2.5 rounded transition shadow-md active:scale-[0.99] mt-2">
+            ${isRegistering ? 'Sign In / Register' : 'Log In'}
           </button>
         </form>
+        
+        <div class="text-xs mt-4 text-left">
+          <span class="text-gray-400">
+            ${isRegistering ? 'Already have an account?' : 'Need an account?'}
+          </span>
+          <button id="toggle-auth-mode" class="text-drixGreen hover:underline ml-1 font-medium">
+            ${isRegistering ? 'Log In' : 'Register'}
+          </button>
+        </div>
       </div>
     </div>
   `;
 }
 
 export function renderMainInterface(state) {
-  // Use the username saved in the state profile, fall back to email splitting if empty
   const displayName = state.username || state.user.email.split('@')[0];
   const premium = evaluateServerPremium(state.currentServer?.metsContributed || 0, state.currentServer?.ownerName || "");
 
@@ -141,13 +160,6 @@ export function renderMainInterface(state) {
             <div class="flex flex-col overflow-hidden">
               <span class="text-sm font-bold premium-gradient-text truncate">Bluz</span>
               <span class="text-[10px] text-amber-400 font-medium flex items-center gap-0.5">Founder ${premium.hasCustomRoleIcons ? '👑' : ''}</span>
-            </div>
-          </div>
-          <div class="flex items-center space-x-2.5 p-1 rounded hover:bg-bgPrimary/40 transition opacity-80 cursor-not-allowed">
-            <div class="w-8 h-8 rounded-full bg-bgTertiary flex items-center justify-center font-bold text-drixGreen text-xs">D</div>
-            <div class="flex flex-col overflow-hidden">
-              <span class="text-sm font-medium text-gray-300 truncate">DrixianBot</span>
-              <span class="text-[10px] text-gray-500">System Bot</span>
             </div>
           </div>
         </div>
