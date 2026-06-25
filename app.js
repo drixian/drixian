@@ -26,14 +26,13 @@ let state = {
   channels: [],
   messages: [],
   currentServer: null,
-  isAuthLoading: true // New anchor flag to trap rendering loop until auth clears
+  isAuthLoading: true
 };
 
 function triggerDOMUpdate(errorMessage = "", isRegistering = false) {
   const root = document.getElementById('drixian-root');
   if (!root) return;
 
-  // Intercept the render pass if Firebase is still calculating the session status on reload
   if (state.isAuthLoading) {
     root.innerHTML = `
       <div class="h-screen w-screen flex flex-col items-center justify-center bg-[#36393f]">
@@ -171,25 +170,32 @@ window.drixianSelectChannel = function(id) {
   });
 };
 
-// Fire up the immediate initial screen rendering loop pass
 triggerDOMUpdate();
 
-// Pipeline State Synchronizer Listener
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     state.user = user;
-    const profileSnap = await getDoc(doc(db, "users", user.uid));
-    state.username = profileSnap.exists() ? profileSnap.data().username : user.email.split('@')[0];
+    
+    try {
+      const profileSnap = await getDoc(doc(db, "users", user.uid));
+      state.username = profileSnap.exists() ? profileSnap.data().username : user.email.split('@')[0];
+    } catch (e) {
+      state.username = user.email.split('@')[0];
+    }
+
+    state.isAuthLoading = false;
+    triggerDOMUpdate();
 
     const q = query(collection(db, "communities"), orderBy("createdAt", "desc"));
     onSnapshot(q, (snap) => {
       state.communities = [];
       snap.forEach(d => state.communities.push({ id: d.id, ...d.data() }));
-      
-      // Release loading block lock safely once records load inside structural context
-      state.isAuthLoading = false;
+      triggerDOMUpdate();
+    }, (err) => {
+      console.warn("Communities query limited:", err.message);
       triggerDOMUpdate();
     });
+
   } else {
     state.user = null;
     state.username = "";
