@@ -189,7 +189,7 @@ export function renderMainInterface(state) {
 
     <div id="drixian-modal-container" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn">
       <div id="modal-content-wrapper" class="bg-bgSecondary w-full max-w-xl rounded-lg border border-bgTertiary text-white shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
-        </div>
+      </div>
     </div>
   `;
 }
@@ -198,7 +198,7 @@ export function renderProfileSettingsHTML(profile) {
   return `
     <div class="p-4 border-b border-black/20 flex justify-between items-center bg-bgTertiary">
       <h3 class="text-lg font-bold tracking-wide">Account Profile Customization</h3>
-      <button onclick="document.getElementById('drixian-modal-container').classList.add('hidden')" class="text-gray-400 hover:text-white text-sm">✕</button>
+      <button type="button" onclick="document.getElementById('drixian-modal-container').classList.add('hidden')" class="text-gray-400 hover:text-white text-sm">✕</button>
     </div>
     <form id="profile-settings-form" class="p-6 space-y-4 overflow-y-auto flex-1">
       <div>
@@ -228,7 +228,7 @@ export function renderServerSettingsHTML(server) {
   return `
     <div class="p-4 border-b border-black/20 flex justify-between items-center bg-bgTertiary">
       <h3 class="text-lg font-bold tracking-wide">Server Configuration Console</h3>
-      <button onclick="document.getElementById('drixian-modal-container').classList.add('hidden')" class="text-gray-400 hover:text-white text-sm">✕</button>
+      <button type="button" onclick="document.getElementById('drixian-modal-container').classList.add('hidden')" class="text-gray-400 hover:text-white text-sm">✕</button>
     </div>
     <form id="server-settings-form" class="p-6 space-y-5 overflow-y-auto flex-1 text-sm">
       <div class="grid grid-cols-2 gap-4">
@@ -244,7 +244,6 @@ export function renderServerSettingsHTML(server) {
       
       <div class="p-3 bg-bgTertiary rounded border border-white/5 space-y-2">
         <h4 class="text-xs font-bold text-amber-400 uppercase tracking-wider">Active Role Distribution Hub</h4>
-        <p class="text-xs text-gray-400">Update system credential roles for structural population streams.</p>
         <div class="grid grid-cols-2 gap-2 pt-1">
           <div>
             <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Target Account Username</label>
