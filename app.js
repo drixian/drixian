@@ -40,7 +40,6 @@ function triggerDOMUpdate(errorMessage = "", isRegistering = false) {
 }
 
 function bindAuthenticationEvents() {
-  // Screen Toggle Button Handler
   document.getElementById('toggle-auth-mode')?.addEventListener('click', () => {
     const currentMode = document.getElementById('auth-mode').value;
     triggerDOMUpdate("", currentMode === 'login');
@@ -54,16 +53,13 @@ function bindAuthenticationEvents() {
 
     try {
       if (mode === 'login') {
-        // Classic 2-Field Login Action
         await signInWithEmailAndPassword(auth, email, password);
       } else {
-        // 3-Field Registration Action
         const usernameInput = document.getElementById('auth-username').value.trim();
         if (!usernameInput) return;
         
         const credentials = await createUserWithEmailAndPassword(auth, email, password);
         
-        // Write the custom username to a permanent profile directory
         await setDoc(doc(db, "users", credentials.user.uid), {
           username: usernameInput,
           createdAt: Date.now()
@@ -124,7 +120,6 @@ function bindInterfaceEvents() {
   });
 }
 
-// Global Selectors
 let unsubChannels = null;
 window.drixianSelectCommunity = function(id) {
   state.activeCommunityId = id;
@@ -154,15 +149,17 @@ window.drixianSelectChannel = function(id) {
   unsubMessages = onSnapshot(q, (snap) => {
     state.messages = [];
     snap.forEach(d => state.messages.push({ id: d.id, ...d.data() }));
+    
+    const container = document.getElementById('chat-conversation-container');
+    if (container) container.scrollTop = container.scrollHeight;
+    
     triggerDOMUpdate();
   });
 };
 
-// Pipeline State Synchronizer
 onAuthStateChanged(auth, async (user) => {
   state.user = user;
   if (user) {
-    // Fetch custom profile data matching the UID
     const profileSnap = await getDoc(doc(db, "users", user.uid));
     state.username = profileSnap.exists() ? profileSnap.data().username : user.email.split('@')[0];
 
