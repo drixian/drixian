@@ -7,17 +7,21 @@ export function renderAuthPage(errorMessage = "") {
         <div class="flex flex-col items-center mb-6">
           <img src="branding/drixianlogo.png" alt="Drixian" class="w-16 h-16 object-contain mb-2 drop-shadow-md">
           <h2 class="text-2xl font-bold text-white tracking-wide">Welcome to Drixian</h2>
-          <p class="text-gray-400 text-xs mt-1">Enter an email and password to instantly register or login.</p>
+          <p class="text-gray-400 text-xs mt-1">Create an account or login below to enter your workspace.</p>
         </div>
         ${errorMessage ? `<div class="bg-drixDanger/20 text-drixDanger p-3 text-xs rounded mb-4 border border-drixDanger/30">${errorMessage}</div>` : ''}
         <form id="auth-form" class="space-y-4">
           <div>
+            <label class="text-xs font-bold text-gray-300 uppercase tracking-wider block mb-2">Display Username</label>
+            <input type="text" id="auth-username" required placeholder="e.g., Bluz" class="w-full bg-bgTertiary text-white p-2.5 rounded focus:border-drixGreen outline-none border border-transparent transition placeholder-gray-600">
+          </div>
+          <div>
             <label class="text-xs font-bold text-gray-300 uppercase tracking-wider block mb-2">Email Address</label>
-            <input type="email" id="auth-email" required class="w-full bg-bgTertiary text-white p-2.5 rounded focus:border-drixGreen outline-none border border-transparent transition">
+            <input type="email" id="auth-email" required placeholder="name@domain.com" class="w-full bg-bgTertiary text-white p-2.5 rounded focus:border-drixGreen outline-none border border-transparent transition placeholder-gray-600">
           </div>
           <div>
             <label class="text-xs font-bold text-gray-300 uppercase tracking-wider block mb-2">Password</label>
-            <input type="password" id="auth-password" required class="w-full bg-bgTertiary text-white p-2.5 rounded focus:border-drixGreen outline-none border border-transparent transition">
+            <input type="password" id="auth-password" required placeholder="••••••••" class="w-full bg-bgTertiary text-white p-2.5 rounded focus:border-drixGreen outline-none border border-transparent transition placeholder-gray-600">
           </div>
           <button type="submit" class="w-full bg-drixGreen hover:bg-emerald-600 text-white font-medium py-2.5 rounded transition shadow-md active:scale-[0.99]">
             Access Platform
@@ -29,7 +33,8 @@ export function renderAuthPage(errorMessage = "") {
 }
 
 export function renderMainInterface(state) {
-  const username = state.user.email.split('@')[0];
+  // Use the username saved in the state profile, fall back to email splitting if empty
+  const displayName = state.username || state.user.email.split('@')[0];
   const premium = evaluateServerPremium(state.currentServer?.metsContributed || 0, state.currentServer?.ownerName || "");
 
   return `
@@ -76,10 +81,10 @@ export function renderMainInterface(state) {
       <div class="h-14 bg-bgProfile px-3 flex items-center justify-between border-t border-black/10">
         <div class="flex items-center space-x-2 overflow-hidden">
           <div class="w-8 h-8 rounded-full bg-drixGreen flex items-center justify-center text-white font-bold flex-shrink-0 text-sm">
-            ${username.substring(0, 1).toUpperCase()}
+            ${displayName.substring(0, 1).toUpperCase()}
           </div>
           <div class="flex flex-col overflow-hidden">
-            <span class="text-sm font-bold text-white truncate leading-tight">${username}</span>
+            <span class="text-sm font-bold text-white truncate leading-tight">${displayName}</span>
             <span class="text-[11px] text-amber-400 font-semibold tracking-wide">Mets Account Verified</span>
           </div>
         </div>
@@ -99,16 +104,17 @@ export function renderMainInterface(state) {
         
         <div class="flex-1 overflow-y-auto p-4 space-y-4" id="chat-conversation-container">
           ${state.messages.map(m => {
-            const isMsgBluz = m.username?.toLowerCase() === 'bluz';
+            const mUser = m.username || "User";
+            const isMsgBluz = mUser.toLowerCase() === 'bluz';
             return `
               <div class="flex items-start space-x-3 group animate-fadeIn">
                 <div class="w-10 h-10 rounded-full bg-bgTertiary flex items-center justify-center font-bold text-white flex-shrink-0 ${isMsgBluz ? 'border-2 border-amber-400 shadow-md' : ''}">
-                  ${(m.username || "U").substring(0,1).toUpperCase()}
+                  ${mUser.substring(0,1).toUpperCase()}
                 </div>
                 <div class="min-w-0 flex-1">
                   <div class="flex items-baseline space-x-2">
                     <span class="text-sm font-bold cursor-pointer ${isMsgBluz || premium.hasGradientNames ? 'premium-gradient-text font-extrabold' : 'text-white'} hover:underline">
-                      ${m.username}
+                      ${mUser}
                     </span>
                     ${isMsgBluz ? '<span class="text-[9px] bg-amber-400 text-black px-1.5 rounded-sm font-black uppercase tracking-wider scale-90">CREATOR</span>' : ''}
                     <span class="text-[10px] text-gray-500">${new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
