@@ -47,21 +47,101 @@ function triggerDOMUpdate(errorMessage = "", isRegistering = false) {
 
   if (!state.user) {
     root.innerHTML = renderAuthPage(errorMessage, isRegistering);
-    bindAuthenticationEvents();
   } else {
     root.innerHTML = renderMainInterface(state);
-    bindInterfaceEvents();
   }
 }
 
-function bindAuthenticationEvents() {
-  document.getElementById('toggle-auth-mode')?.addEventListener('click', () => {
-    const currentMode = document.getElementById('auth-mode').value;
+// ==========================================
+// GLOBAL DELEGATED EVENT LISTENERS (CRITICAL FIX)
+// ==========================================
+document.addEventListener('click', async (e) => {
+  // Toggle Auth Mode
+  if (e.target && e.target.id === 'toggle-auth-mode') {
+    const currentMode = document.getElementById('auth-mode')?.value;
     triggerDOMUpdate("", currentMode === 'login');
-  });
+  }
 
-  document.getElementById('auth-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
+  // Sign Out
+  if (e.target && e.target.id === 'logout-btn') {
+    signOut(auth);
+  }
+
+  // Return Home
+  if (e.target && (e.target.id === 'home-navigation-btn' || e.target.closest('#home-navigation-btn'))) {
+    state.activeCommunityId = null;
+    state.activeChannelId = null;
+    state.currentServer = null;
+    state.messages = [];
+    triggerDOMUpdate();
+  }
+
+  // Create Community
+  if (e.target && e.target.id === 'create-community-btn') {
+    const name = prompt("Enter Server Name:");
+    if (!name || !name.trim()) return;
+    await addDoc(collection(db, "communities"), {
+      name: name.trim(),
+      ownerId: state.user.uid,
+      ownerName: state.username || state.user.email.split('@')[0],
+      metsContributed: (state.username || "").toLowerCase() === 'bluz' ? 500 : 0,
+      createdAt: Date.now()
+    });
+  }
+
+  // Create Channel
+  if (e.target && e.target.id === 'create-channel-btn') {
+    const name = prompt("Enter Channel Name:");
+    if (!name || !name.trim()) return;
+    await addDoc(collection(db, "channels"), {
+      name: name.trim().toLowerCase().replace(/\s+/g, '-'),
+      communityId: state.activeCommunityId,
+      createdAt: Date.now()
+    });
+  }
+
+  // Open Profile Customization Modal
+  if (e.target && (e.target.id === 'open-profile-settings-btn' || e.target.closest('#open-profile-settings-btn'))) {
+    const container = document.getElementById('drixian-modal-container');
+    const wrapper = document.getElementById('modal-content-wrapper');
+    if (container && wrapper) {
+      wrapper.innerHTML = renderProfileSettingsHTML(state.userProfile);
+      container.classList.remove('hidden');
+    }
+  }
+
+  // Open Server Configuration Modal
+  if (e.target && (e.target.id === 'server-settings-btn' || e.target.closest('#server-settings-btn'))) {
+    if (!state.currentServer) return;
+    const container = document.getElementById('drixian-modal-container');
+    const wrapper = document.getElementById('modal-content-wrapper');
+    if (container && wrapper) {
+      wrapper.innerHTML = renderServerSettingsHTML(state.currentServer);
+      container.classList.remove('hidden');
+    }
+  }
+
+  // Apply Role Assignment inside Server Settings Modal
+  if (e.target && e.target.id === 'apply-role-assignment-btn') {
+    const targetUser = document.getElementById('role-target-user')?.value.trim();
+    const assignedClass = document.getElementById('role-target-class')?.value;
+    if (!targetUser) return alert("Specify a valid username target");
+
+    await setDoc(doc(db, "communities", state.activeCommunityId, "roles", targetUser.toLowerCase()), {
+      username: targetUser,
+      role: assignedClass,
+      timestamp: Date.now()
+    });
+    alert(`Classification mapped: ${targetUser} is now recognized as ${assignedClass}`);
+  }
+});
+
+// Forms Submit Interceptor
+document.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  // Auth Form Submit
+  if (e.target && e.target.id === 'auth-form') {
     const mode = document.getElementById('auth-mode').value;
     const email = document.getElementById('auth-email').value;
     const password = document.getElementById('auth-password').value;
@@ -84,106 +164,13 @@ function bindAuthenticationEvents() {
     } catch (err) {
       triggerDOMUpdate(err.message, mode === 'register');
     }
-  });
-}
+  }
 
-function bindInterfaceEvents() {
-  document.getElementById('logout-btn')?.addEventListener('click', () => signOut(auth));
-  
-  document.getElementById('home-navigation-btn')?.addEventListener('click', () => {
-    state.activeCommunityId = null;
-    state.activeChannelId = null;
-    state.currentServer = null;
-    state.messages = [];
-    triggerDOMUpdate();
-  });
-
-  // Modal Panel Mount Triggers
-  document.getElementById('open-profile-settings-btn')?.addEventListener('click', () => {
-    const container = document.getElementById('drixian-modal-container');
-    const wrapper = document.getElementById('modal-content-wrapper');
-    wrapper.innerHTML = renderProfileSettingsHTML(state.userProfile);
-    container.classList.remove('hidden');
-
-    document.getElementById('profile-settings-form')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const updatedName = document.getElementById('edit-profile-username').value.trim();
-      const updatedStatus = document.getElementById('edit-profile-status').value.trim();
-      const updatedColor = document.getElementById('edit-profile-color').value;
-
-      await updateDoc(doc(db, "users", state.user.uid), {
-        username: updatedName,
-        customStatus: updatedStatus,
-        avatarColor: updatedColor
-      });
-      container.classList.add('hidden');
-    });
-  });
-
-  document.getElementById('server-settings-btn')?.addEventListener('click', () => {
-    if (!state.currentServer) return;
-    const container = document.getElementById('drixian-modal-container');
-    const wrapper = document.getElementById('modal-content-wrapper');
-    wrapper.innerHTML = renderServerSettingsHTML(state.currentServer);
-    container.classList.remove('hidden');
-
-    // Role Distribution Event Mapping
-    document.getElementById('apply-role-assignment-btn')?.addEventListener('click', async () => {
-      const targetUser = document.getElementById('role-target-user').value.trim();
-      const assignedClass = document.getElementById('role-target-class').value;
-      if (!targetUser) return alert("Specify a valid username target");
-
-      await setDoc(doc(db, "communities", state.activeCommunityId, "roles", targetUser.toLowerCase()), {
-        username: targetUser,
-        role: assignedClass,
-        timestamp: Date.now()
-      });
-      alert(`Classification mapped: ${targetUser} is now prioritized as ${assignedClass}`);
-    });
-
-    document.getElementById('server-settings-form')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const updatedServerName = document.getElementById('edit-server-name').value.trim();
-      const updatedMets = parseInt(document.getElementById('edit-server-mets').value) || 0;
-
-      await updateDoc(doc(db, "communities", state.activeCommunityId), {
-        name: updatedServerName,
-        metsContributed: updatedMets
-      });
-      container.classList.add('hidden');
-    });
-  });
-
-  document.getElementById('create-community-btn')?.addEventListener('click', async () => {
-    const name = prompt("Enter Server Name:");
-    if (!name || !name.trim()) return;
-    
-    await addDoc(collection(db, "communities"), {
-      name: name.trim(),
-      ownerId: state.user.uid,
-      ownerName: state.username || state.user.email.split('@')[0],
-      metsContributed: (state.username || "").toLowerCase() === 'bluz' ? 500 : 0,
-      createdAt: Date.now()
-    });
-  });
-
-  document.getElementById('create-channel-btn')?.addEventListener('click', async () => {
-    const name = prompt("Enter Channel Name:");
-    if (!name || !name.trim()) return;
-    
-    await addDoc(collection(db, "channels"), {
-      name: name.trim().toLowerCase().replace(/\s+/g, '-'),
-      communityId: state.activeCommunityId,
-      createdAt: Date.now()
-    });
-  });
-
-  document.getElementById('chat-message-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
+  // Message Send Form Submit
+  if (e.target && e.target.id === 'chat-message-form') {
     const inputField = document.getElementById('chat-message-input');
     if (!inputField || !inputField.value.trim() || !state.activeChannelId) return;
 
-    // Fetch existing role profile if applicable
     const explicitRole = state.serverUsers?.find(su => su.username?.toLowerCase() === state.username.toLowerCase())?.role || 'member';
 
     await addDoc(collection(db, "channels", state.activeChannelId, "messages"), {
@@ -194,9 +181,38 @@ function bindInterfaceEvents() {
       timestamp: Date.now()
     });
     inputField.value = '';
-  });
-}
+  }
 
+  // Profile Form Submit
+  if (e.target && e.target.id === 'profile-settings-form') {
+    const updatedName = document.getElementById('edit-profile-username').value.trim();
+    const updatedStatus = document.getElementById('edit-profile-status').value.trim();
+    const updatedColor = document.getElementById('edit-profile-color').value;
+
+    await updateDoc(doc(db, "users", state.user.uid), {
+      username: updatedName,
+      customStatus: updatedStatus,
+      avatarColor: updatedColor
+    });
+    document.getElementById('drixian-modal-container').classList.add('hidden');
+  }
+
+  // Server Form Submit
+  if (e.target && e.target.id === 'server-settings-form') {
+    const updatedServerName = document.getElementById('edit-server-name').value.trim();
+    const updatedMets = parseInt(document.getElementById('edit-server-mets').value) || 0;
+
+    await updateDoc(doc(db, "communities", state.activeCommunityId), {
+      name: updatedServerName,
+      metsContributed: updatedMets
+    });
+    document.getElementById('drixian-modal-container').classList.add('hidden');
+  }
+});
+
+// ==========================================
+// SEAMLESS LIFECYCLE CHANNELS DATA HUB
+// ==========================================
 let unsubChannels = null;
 let unsubServerUsers = null;
 window.drixianSelectCommunity = function(id) {
@@ -235,31 +251,43 @@ window.drixianSelectChannel = function(id) {
   unsubMessages = onSnapshot(q, (snap) => {
     state.messages = [];
     snap.forEach(d => state.messages.push({ id: d.id, ...d.data() }));
+    triggerDOMUpdate();
     
     const container = document.getElementById('chat-conversation-container');
     if (container) container.scrollTop = container.scrollHeight;
-    
-    triggerDOMUpdate();
   });
 };
 
 triggerDOMUpdate();
 
+// ==========================================
+// PIPELINE AUTH STREAM REALIGNMENT (FIXED FALLBACK)
+// ==========================================
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     state.user = user;
     
-    // Live update account context profiles
+    // 1. Instantly pull document data to intercept any "Business" email fallbacks
+    const profileSnap = await getDoc(doc(db, "users", user.uid));
+    if (profileSnap.exists()) {
+      state.userProfile = profileSnap.data();
+      state.username = profileSnap.data().username || user.email.split('@')[0];
+    } else {
+      state.username = user.email.split('@')[0];
+      state.userProfile = { username: state.username, avatarColor: '#43b581', customStatus: 'Mets Account Verified' };
+    }
+
+    // 2. Clear out loading flags immediately
+    state.isAuthLoading = false;
+    triggerDOMUpdate();
+
+    // 3. Keep background listeners listening cleanly
     onSnapshot(doc(db, "users", user.uid), (snap) => {
       if (snap.exists()) {
         state.userProfile = snap.data();
-        state.username = snap.data().username || user.email.split('@')[0];
-      } else {
-        state.username = user.email.split('@')[0];
-        state.userProfile = { username: state.username, avatarColor: '#43b581' };
+        state.username = snap.data().username;
+        triggerDOMUpdate();
       }
-      state.isAuthLoading = false;
-      triggerDOMUpdate();
     });
 
     const q = query(collection(db, "communities"), orderBy("createdAt", "desc"));
@@ -270,14 +298,12 @@ onAuthStateChanged(auth, async (user) => {
         state.communities.push({ id: d.id, ...d.data() });
       });
       triggerDOMUpdate();
-    }, (err) => {
-      console.warn("Query limit:", err.message);
-      triggerDOMUpdate();
     });
 
   } else {
     state.user = null;
     state.username = "";
+    state.userProfile = {};
     state.activeCommunityId = null;
     state.activeChannelId = null;
     state.isAuthLoading = false;
