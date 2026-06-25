@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, where, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, where, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { renderAuthPage, renderMainInterface } from './ui.js';
 
 const firebaseConfig = {
@@ -17,9 +17,9 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Operational Engine Application Memory State
 let state = {
   user: null,
+  username: "",
   activeCommunityId: null,
   activeChannelId: null,
   communities: [],
@@ -28,10 +28,10 @@ let state = {
   currentServer: null
 };
 
-function triggerDOMUpdate() {
+function triggerDOMUpdate(errorMessage = "", isRegistering = false) {
   const root = document.getElementById('drixian-root');
   if (!state.user) {
-    root.innerHTML = renderAuthPage();
+    root.innerHTML = renderAuthPage(errorMessage, isRegistering);
     bindAuthenticationEvents();
   } else {
     root.innerHTML = renderMainInterface(state);
@@ -40,21 +40,37 @@ function triggerDOMUpdate() {
 }
 
 function bindAuthenticationEvents() {
+  // Screen Toggle Button Handler
+  document.getElementById('toggle-auth-mode')?.addEventListener('click', () => {
+    const currentMode = document.getElementById('auth-mode').value;
+    triggerDOMUpdate("", currentMode === 'login');
+  });
+
   document.getElementById('auth-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const mode = document.getElementById('auth-mode').value;
     const email = document.getElementById('auth-email').value;
     const password = document.getElementById('auth-password').value;
-    
+
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (loginErr) {
-      try {
-        // Transparent user generation tier account factory
-        await createUserWithEmailAndPassword(auth, email, password);
-      } catch (regErr) {
-        document.getElementById('drixian-root').innerHTML = renderAuthPage(regErr.message);
-        bindAuthenticationEvents();
+      if (mode === 'login') {
+        // Classic 2-Field Login Action
+        await signInWithEmailAndPassword(auth, email, password);
+      } else {
+        // 3-Field Registration Action
+        const usernameInput = document.getElementById('auth-username').value.trim();
+        if (!usernameInput) return;
+        
+        const credentials = await createUserWithEmailAndPassword(auth, email, password);
+        
+        // Write the custom username to a permanent profile directory
+        await setDoc(doc(db, "users", credentials.user.uid), {
+          username: usernameInput,
+          createdAt: Date.now()
+        });
       }
+    } catch (err) {
+      triggerDOMUpdate(err.message, mode === 'register');
     }
   });
 }
@@ -77,8 +93,8 @@ function bindInterfaceEvents() {
     await addDoc(collection(db, "communities"), {
       name: name.trim(),
       ownerId: state.user.uid,
-      ownerName: state.user.email.split('@')[0],
-      metsContributed: state.user.email.split('@')[0].toLowerCase() === 'bluz' ? 500 : 0,
+      ownerName: state.username || state.user.email.split('@')[0],
+      metsContributed: (state.username || "").toLowerCase() === 'bluz' ? 500 : 0,
       createdAt: Date.now()
     });
   });
@@ -100,7 +116,7 @@ function bindInterfaceEvents() {
     if (!inputField || !inputField.value.trim() || !state.activeChannelId) return;
 
     await addDoc(collection(db, "channels", state.activeChannelId, "messages"), {
-      username: state.user.email.split('@')[0],
+      username: state.username || state.user.email.split('@')[0],
       content: inputField.value.trim(),
       timestamp: Date.now()
     });
@@ -108,7 +124,7 @@ function bindInterfaceEvents() {
   });
 }
 
-// Window Context Attached Event Routers
+// Global Selectors
 let unsubChannels = null;
 window.drixianSelectCommunity = function(id) {
   state.activeCommunityId = id;
@@ -121,7 +137,6 @@ window.drixianSelectCommunity = function(id) {
   unsubChannels = onSnapshot(q, (snap) => {
     state.channels = [];
     snap.forEach(d => state.channels.push({ id: d.id, ...d.data() }));
-    
     if (state.channels.length > 0 && !state.activeChannelId) {
       window.drixianSelectChannel(state.channels[0].id);
     } else {
@@ -140,16 +155,17 @@ window.drixianSelectChannel = function(id) {
     state.messages = [];
     snap.forEach(d => state.messages.push({ id: d.id, ...d.data() }));
     triggerDOMUpdate();
-  }, (err) => {
-    console.warn("Index optimizing required. Messages streaming sequentially.");
-    triggerDOMUpdate();
   });
 };
 
-// Global Firebase Initialization Real-time Pipeline Listener
-onAuthStateChanged(auth, (user) => {
+// Pipeline State Synchronizer
+onAuthStateChanged(auth, async (user) => {
   state.user = user;
   if (user) {
+    // Fetch custom profile data matching the UID
+    const profileSnap = await getDoc(doc(db, "users", user.uid));
+    state.username = profileSnap.exists() ? profileSnap.data().username : user.email.split('@')[0];
+
     const q = query(collection(db, "communities"), orderBy("createdAt", "desc"));
     onSnapshot(q, (snap) => {
       state.communities = [];
@@ -157,6 +173,7 @@ onAuthStateChanged(auth, (user) => {
       triggerDOMUpdate();
     });
   } else {
+    state.username = "";
     state.activeCommunityId = null;
     state.activeChannelId = null;
     triggerDOMUpdate();
